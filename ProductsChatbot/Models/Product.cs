@@ -19,5 +19,5 @@ namespace ProductsChatbot.Models
             Map(m => m.Description).Name("description");
             Map(m => m.Price).Name("price");
         }
-    }
+    } 
 }
