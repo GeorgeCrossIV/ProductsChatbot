@@ -34,6 +34,8 @@ namespace ProductsChatbot.Controllers
             string username = _configuration.GetSection("AstraDb:Username").Get<string>();
             string password = _configuration.GetSection("AstraDb:Password").Get<string>();
             string keyspace = _configuration.GetSection("AstraDb:Keyspace").Get<string>();
+            string tablename = _configuration.GetSection("AstraDb:Tablename").Get<string>();
+
 
             try
             {
@@ -53,11 +55,9 @@ namespace ProductsChatbot.Controllers
             }
 
             // test the connection
-            SimpleStatement statement = new SimpleStatement("select count(*) from products_table");
+            SimpleStatement statement = new SimpleStatement($"select count(*) from {tablename}");
             var results = _Session.Execute(statement);
             Row row = results.FirstOrDefault();
-
-
         }
 
         string GetProductRecommendations(string question)
@@ -65,72 +65,70 @@ namespace ProductsChatbot.Controllers
             List<Product> products = new List<Product>();
             string apiKey = _configuration.GetSection("OPENAI_API_KEY").Get<string>();
             OpenAI_API.OpenAIAPI api = new OpenAI_API.OpenAIAPI(apiKey);
+            string keyspace = _configuration.GetSection("AstraDb:Keyspace").Get<string>();
+            string tablename = _configuration.GetSection("AstraDb:Tablename").Get<string>();
+            string response = "Trying ...";
 
-            // get the embedding for the question
-            EmbeddingResult embeddingResult = api.Embeddings.CreateEmbeddingAsync(question).Result;
-            float[] embedding = embeddingResult.Data[0].Embedding;
-            string embeddingString = "[" + string.Join(",", embedding) + "]";
+            try
+            {
+                // get the embedding for the question
+                EmbeddingResult embeddingResult = api.Embeddings.CreateEmbeddingAsync(question).Result;
+                float[] embedding = embeddingResult.Data[0].Embedding;
+                string embeddingString = "[" + string.Join(",", embedding) + "]";
 
-            // Query the vector database for the top five products
-            SimpleStatement statement = new SimpleStatement(
-                $@"    
+                // Query the vector database for the top five products
+                SimpleStatement statement = new SimpleStatement(
+                    $@"    
                 SELECT product_id, product_name, description, price
-                FROM vector_preview.products_table
-                ORDER BY openai_description_embedding ANN OF { embeddingString } LIMIT 5; 
+                FROM {keyspace}.{tablename}
+                ORDER BY openai_description_embedding ANN OF {embeddingString} LIMIT 5; 
                 "
-                );
-            var results = _Session.Execute(statement);
-            foreach (var row in results)
-            {
-                Product product = new Product();
-                product.ProductId = Convert.ToInt32(row["product_id"]);
-                product.ProductName = row["product_name"].ToString();
-                product.Description = row["description"].ToString();
-                product.Price = row["price"].ToString();
-                products.Add(product);
-            }
+                    );
+                var results = _Session.Execute(statement);
+                foreach (var row in results)
+                {
+                    Product product = new Product();
+                    product.ProductId = Convert.ToInt32(row["product_id"]);
+                    product.ProductName = row["product_name"].ToString();
+                    product.Description = row["description"].ToString();
+                    product.Price = row["price"].ToString();
+                    products.Add(product);
+                }
 
-            // Ask OpenAI to provide a prompt engineered response
-            ChatRequest chatRequest = new ChatRequest();
-            chatRequest.Model = Model.ChatGPTTurbo;
-            var chat = api.Chat.CreateConversation(chatRequest);
+                // Ask OpenAI to provide a prompt engineered response
+                ChatRequest chatRequest = new ChatRequest();
+                chatRequest.Model = Model.ChatGPTTurbo;
+                var chat = api.Chat.CreateConversation(chatRequest);
 
-            chat.AppendSystemMessage("You're a chatbot helping customers with questions and helping them with product recommendations");
-            chat.AppendUserInput(question);
-            chat.AppendUserInput("Please give me a detailed explanation of your recommendations");
-            chat.AppendUserInput("Please be friendly and talk to me like a person, don't just give me a list of recommendations");
-            chat.AppendExampleChatbotOutput("I found these 3 products I would recommend");
-            foreach (var product in products)
+                chat.AppendSystemMessage("You're a chatbot helping customers with questions and helping them with product recommendations");
+                chat.AppendUserInput(question);
+                chat.AppendUserInput("Please give me a detailed explanation of your recommendations");
+                chat.AppendUserInput("Please be friendly and talk to me like a person, don't just give me a list of recommendations");
+                chat.AppendSystemMessage("Format the output to display nicely in a chat window");
+                chat.AppendExampleChatbotOutput("I found these 3 products I would recommend");
+                foreach (var product in products)
+                {
+                    chat.AppendExampleChatbotOutput(product.Description);
+                }
+                chat.AppendExampleChatbotOutput("Here's my summarized recommendation of products, and why it would suit you:");
+                response = chat.GetResponseFromChatbot().Result;
+
+            } catch (Exception ex)
             {
-                chat.AppendExampleChatbotOutput(product.Description);
+                response = $"Error generating response: {ex.Message}";
             }
-            chat.AppendExampleChatbotOutput("Here's my summarized recommendation of products, and why it would suit you:");
-            string response = chat.GetResponseFromChatbot().Result;
 
             return response;
         }
 
 
         [HttpGet]
-        public IActionResult GetBotResponse(string userInput)
+        public IActionResult GetResponse(string userInput)
         {
             //var products = GetProductRecommendations(userInput);
 
-            string botResponse = GetProductRecommendations(userInput); // GetResponse(userInput);
-            return Ok(botResponse);
-        }
-
-        private string GetResponse(string userInput)
-        {
-            userInput = userInput.ToLower();
-
-            if (userInput.Contains("hello"))
-                return "Hi there! How can I help you today?";
-            else if (userInput.Contains("your name"))
-                return "I'm ChatGPT Bot!";
-            else
-                return "Sorry, I didn't understand that.";
-
+            string response = GetProductRecommendations(userInput); // GetResponse(userInput);
+            return Json(response);
         }
 
         public IActionResult ProcessData()
@@ -138,8 +136,7 @@ namespace ProductsChatbot.Controllers
             // Get the Products
             List<Product> products = GetProducts();
 
-            // Create embeddings
-            var test = GetEmbedding("This is a test").Result;
+            ProcessAndInsertData(products);
 
             return RedirectToAction("Index");
         }
@@ -176,6 +173,10 @@ namespace ProductsChatbot.Controllers
 
         void ProcessAndInsertData(List<Product> products)
         {
+            //TODO - delete existing records
+            string keyspace = _configuration.GetSection("AstraDb:Keyspace").Get<string>();
+            string tablename = _configuration.GetSection("AstraDb:Tablename").Get<string>();
+
             foreach (var product in products)
             {
                 int textChunkLength = 2500;
@@ -193,8 +194,8 @@ namespace ProductsChatbot.Controllers
                     var embedding = GetEmbedding(fullChunk);
                     
 
-                    string cqlQuery = @"
-                    INSERT INTO vector_preview.products_table
+                    string cqlQuery = @$"
+                    INSERT INTO {keyspace}.{tablename}
                     (product_id, chunk_id, product_name, description, price, openai_description_embedding)
                     VALUES (?, ?, ?, ?, ?, ?)
                 ";

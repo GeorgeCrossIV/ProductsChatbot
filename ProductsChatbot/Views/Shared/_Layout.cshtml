@@ -5,10 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - ProductsChatbot</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+@*    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/ProductsChatbot.styles.css" asp-append-version="true" />
+*@
+    <link href="https://kendo.cdn.telerik.com/themes/6.4.0/material/material-main-dark.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.kendostatic.com/2023.1.425/js/jquery.min.js"></script>
+    <script src="https://cdn.kendostatic.com/2023.1.425/js/jszip.min.js"></script>
+    <script src="https://cdn.kendostatic.com/2023.1.425/js/kendo.all.min.js"></script>
+    <script src="https://cdn.kendostatic.com/2023.1.425/js/kendo.aspnetmvc.min.js"></script>
+
+    <style>
+        html .k-chat .k-card-deck .k-card {
+            flex-basis: 450px;
+        }
+
+        .k-card > img.k-card-image {
+            height: 115px;
+            display: block;
+        }
+
+        #chat {
+            width: 600px !important; /* You can adjust this value according to your preference */
+        }
+    </style>
 </head>
 <body>
+    @RenderSection("scripts", required: false)
+
     <header>
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
             <div class="container-fluid">
@@ -41,9 +64,13 @@
             &copy; 2023 - ProductsChatbot - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
     </footer>
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
-    @await RenderSectionAsync("Scripts", required: false)
+    <environment names="Development">
+        <script src="~/lib/bootstrap/js/bootstrap.js"></script>
+    </environment>
+    <environment names="Staging,Production">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+                asp-fallback-src="~/lib/bootstrap/js/bootstrap.bundle.min.js"
+                asp-fallback-test="window.jQuery && window.jQuery.fn && window.jQuery.fn.modal"></script>
+    </environment>
 </body>
 </html>

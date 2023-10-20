@@ -3,11 +3,52 @@
 }
 
 <p>Sample question: What equipement would you recommend for a computer workstation setup costing less than $2000?</p>
-<!-- Index.cshtml -->
-<div class="container">
-    <div id="chat-box">
-        <div id="messages"></div>
-    </div>
-    <input type="text" id="user-input" placeholder="Type a message..." style="width: 70%; padding: 10px; border: 1px solid black; border-radius: 5px;" />
-    <button onclick="sendMessage()">Send</button>
+<div class="demo-section">
+    @(Html.Kendo().Chat()
+        .Name("chat")
+        
+        .User(user => user
+            .Name("George Cross")
+            .IconUrl("images/headshot-small.jpg")
+        )
+        .Events(e =>
+        {
+            e.Post("onPost");
+        })
+    )
 </div>
+
+
+@section scripts {
+    <!-- Load Bot Framework Client API -->
+    <script src="https://unpkg.com/botframework-directlinejs@0.11.5/dist/directline.js"></script>
+
+    <!-- Load Adaptive Cards Client API -->
+    <script src="https://unpkg.com/adaptivecards@2.10.0/dist/adaptivecards.min.js"></script>
+
+    <script>
+        function onPost(e) {
+            var userMessage = e.text; // The text of the message that the user posted
+
+            // Use AJAX to get the response from the server
+            $.ajax({
+                url: '/home/GetResponse',
+                type: 'GET',
+                dataType: 'text',
+                data: { userInput: userMessage },
+                success: function (response) {
+                    // When the server responds successfully, render the response in the chat window
+                    var chat = $("#chat").data("kendoChat");
+                    chat.renderMessage({
+                        text: response,
+                        type: "message",
+                        timestamp: new Date()
+                    }, { name: "Recommender", iconUrl: "images/bot.png" });  // assuming a bot is replying
+                },
+                error: function (error) {
+                    console.error("Error fetching response:", error);
+                }
+            });
+        }
+    </script>
+}

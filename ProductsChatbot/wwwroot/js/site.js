@@ -9,13 +9,13 @@ function sendMessage() {
     var messagesDiv = document.getElementById("messages");
 
     // Display user's message
-    messagesDiv.innerHTML += `<div>User: ${userInput}</div>`;
+    messagesDiv.innerHTML += `<div><b>User:</b> ${userInput}</div>`;
 
     // Get the bot's response
     fetch('/home/getbotresponse?userInput=' + userInput)
         .then(response => response.text())
         .then(data => {
-            messagesDiv.innerHTML += `<div>Bot: ${data}</div>`;
+            messagesDiv.innerHTML += `<div><b>Bot:</b> ${data}</div>`;
         });
 
     // Clear the user input field
