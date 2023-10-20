@@ -3,10 +3,10 @@
 }
 
 <p>Sample question: What equipement would you recommend for a computer workstation setup costing less than $2000?</p>
-<div class="demo-section">
+<div >
     @(Html.Kendo().Chat()
         .Name("chat")
-        
+        .HtmlAttributes(new { style = "width: 600px;" })
         .User(user => user
             .Name("George Cross")
             .IconUrl("images/headshot-small.jpg")
